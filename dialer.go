@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var defaultTTL = 1 * time.Minute
+var defaultTTL = 1 * time.Hour
 
 type dialer interface {
 	Dial(network, address string) (net.Conn, error)
