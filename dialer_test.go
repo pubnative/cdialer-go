@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -45,6 +46,8 @@ func TestReuseIP(t *testing.T) {
 			usedIPs = append(usedIPs, address)
 			return c, nil
 		}},
+		TTL:      defaultTTL,
+		resolved: time.Now(),
 		addrs: map[string][]string{
 			"github.com:80": []string{"10.0.0.1:80"},
 		},
@@ -68,6 +71,8 @@ func TestIterateOverCachedIPs(t *testing.T) {
 			usedIPs = append(usedIPs, address)
 			return c, nil
 		}},
+		TTL:      defaultTTL,
+		resolved: time.Now(),
 		addrs: map[string][]string{
 			"github.com:80": []string{"10.0.0.1:80", "10.0.0.2:80", "10.0.0.3:80"},
 		},
@@ -95,6 +100,8 @@ func TestRemoveBrokenIPFromCache(t *testing.T) {
 			usedIPs = append(usedIPs, address)
 			return nil, e
 		}},
+		TTL:      defaultTTL,
+		resolved: time.Now(),
 		addrs: map[string][]string{
 			"github.com:80": []string{
 				"10.0.0.1:80", "10.0.0.2:80",
@@ -144,6 +151,8 @@ func TestResolveHostWhenCacheIsEmpty(t *testing.T) {
 			usedIPs = append(usedIPs, address)
 			return nil, e
 		}},
+		TTL:      defaultTTL,
+		resolved: time.Now(),
 		LookupIP: func(string) ([]net.IP, error) {
 			resolved <- true
 
@@ -207,4 +216,28 @@ func TestResolveHostWhenCacheIsEmpty(t *testing.T) {
 		}
 		assert.Equal(t, testCases[i].resolved, resolving)
 	}
+}
+
+func TestResolveNewIPsWhenTTLExpired(t *testing.T) {
+	var usedIP string
+
+	d := &Dialer{
+		TTL:      defaultTTL,
+		resolved: time.Now().Add(-defaultTTL),
+		addrs: map[string][]string{
+			"github.com:80": []string{"10.0.0.1:80"},
+		},
+		D: testDialer{d: func(network string, address string) (net.Conn, error) {
+			usedIP = address
+			return nil, nil
+		}},
+		LookupIP: func(host string) ([]net.IP, error) {
+			return []net.IP{net.ParseIP("10.0.0.2")}, nil
+		},
+	}
+
+	_, err := d.Dial("tcp", "github.com:80")
+	assert.Nil(t, err)
+	assert.Equal(t, usedIP, "10.0.0.2:80")
+	assert.Equal(t, d.addrs["github.com:80"], []string{"10.0.0.2:80"})
 }
