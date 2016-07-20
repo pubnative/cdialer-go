@@ -172,32 +172,32 @@ func TestResolveHostWhenCacheIsEmpty(t *testing.T) {
 		resolved bool
 	}{
 		{
-			used:     "10.0.0.2:80",
-			left:     []string{"10.0.0.1:80", "10.0.0.3:80"},
+			used:     "[10.0.0.2]:80",
+			left:     []string{"[10.0.0.1]:80", "[10.0.0.3]:80"},
 			resolved: true,
 		},
 		{
-			used:     "10.0.0.1:80",
-			left:     []string{"10.0.0.3:80"},
+			used:     "[10.0.0.1]:80",
+			left:     []string{"[10.0.0.3]:80"},
 			resolved: false,
 		},
 		{
-			used:     "10.0.0.3:80",
+			used:     "[10.0.0.3]:80",
 			left:     []string{},
 			resolved: false,
 		},
 		{
-			used:     "10.0.0.5:80",
-			left:     []string{"10.0.0.4:80", "10.0.0.6:80"},
+			used:     "[10.0.0.5]:80",
+			left:     []string{"[10.0.0.4]:80", "[10.0.0.6]:80"},
 			resolved: true,
 		},
 		{
-			used:     "10.0.0.6:80",
-			left:     []string{"10.0.0.4:80"},
+			used:     "[10.0.0.6]:80",
+			left:     []string{"[10.0.0.4]:80"},
 			resolved: false,
 		},
 		{
-			used:     "10.0.0.4:80",
+			used:     "[10.0.0.4]:80",
 			left:     []string{},
 			resolved: false,
 		},
@@ -238,6 +238,6 @@ func TestResolveNewIPsWhenTTLExpired(t *testing.T) {
 
 	_, err := d.Dial("tcp", "github.com:80")
 	assert.Nil(t, err)
-	assert.Equal(t, usedIP, "10.0.0.2:80")
-	assert.Equal(t, d.addrs["github.com:80"], []string{"10.0.0.2:80"})
+	assert.Equal(t, usedIP, "[10.0.0.2]:80")
+	assert.Equal(t, d.addrs["github.com:80"], []string{"[10.0.0.2]:80"})
 }
