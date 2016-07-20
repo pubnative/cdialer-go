@@ -153,7 +153,7 @@ func (d *Dialer) resolve(address string) ([]string, error) {
 
 	addrs := make([]string, 0, len(ips))
 	for _, ip := range ips {
-		addrs = append(addrs, ip.String()+":"+port)
+		addrs = append(addrs, "["+ip.String()+"]:"+port)
 	}
 	return addrs, nil
 }
