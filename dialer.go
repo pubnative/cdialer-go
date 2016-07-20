@@ -3,6 +3,7 @@ package cdialer
 import (
 	"errors"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,9 +16,10 @@ type dialer interface {
 }
 
 type Dialer struct {
-	D        dialer
-	LookupIP func(host string) (ips []net.IP, err error)
-	TTL      time.Duration
+	D           dialer
+	LookupIP    func(host string) (ips []net.IP, err error)
+	TTL         time.Duration
+	ExcludeIPv6 bool
 
 	mx       sync.RWMutex
 	addrs    map[string][]string
@@ -153,7 +155,15 @@ func (d *Dialer) resolve(address string) ([]string, error) {
 
 	addrs := make([]string, 0, len(ips))
 	for _, ip := range ips {
-		addrs = append(addrs, "["+ip.String()+"]:"+port)
+		addr := ip.String()
+
+		if d.ExcludeIPv6 {
+			if strings.IndexRune(addr, ':') > -1 {
+				continue
+			}
+		}
+
+		addrs = append(addrs, "["+addr+"]:"+port)
 	}
 	return addrs, nil
 }
