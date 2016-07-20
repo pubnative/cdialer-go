@@ -241,3 +241,43 @@ func TestResolveNewIPsWhenTTLExpired(t *testing.T) {
 	assert.Equal(t, usedIP, "[10.0.0.2]:80")
 	assert.Equal(t, d.addrs["github.com:80"], []string{"[10.0.0.2]:80"})
 }
+
+func TestResolve(t *testing.T) {
+	d := Dialer{
+		LookupIP: func(host string) ([]net.IP, error) {
+			ips := []net.IP{
+				net.ParseIP("10.11.12.13"),
+				net.ParseIP("10.11.12.14"),
+				net.ParseIP("2001:470:1:18::119"),
+			}
+			return ips, nil
+		},
+	}
+
+	addrs, err := d.resolve("github.com:80")
+	assert.NoError(t, err)
+	assert.Len(t, addrs, 3)
+	assert.Equal(t, addrs[0], "[10.11.12.13]:80")
+	assert.Equal(t, addrs[1], "[10.11.12.14]:80")
+	assert.Equal(t, addrs[2], "[2001:470:1:18::119]:80")
+}
+
+func TestResolveExcludesIPv6(t *testing.T) {
+	d := Dialer{
+		ExcludeIPv6: true,
+		LookupIP: func(host string) ([]net.IP, error) {
+			ips := []net.IP{
+				net.ParseIP("10.11.12.13"),
+				net.ParseIP("10.11.12.14"),
+				net.ParseIP("2001:470:1:18::119"),
+			}
+			return ips, nil
+		},
+	}
+
+	addrs, err := d.resolve("github.com:80")
+	assert.NoError(t, err)
+	assert.Len(t, addrs, 2)
+	assert.Equal(t, addrs[0], "[10.11.12.13]:80")
+	assert.Equal(t, addrs[1], "[10.11.12.14]:80")
+}
