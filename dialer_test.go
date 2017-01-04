@@ -1,6 +1,7 @@
 package cdialer
 
 import (
+	"context"
 	"errors"
 	"net"
 	"testing"
@@ -10,30 +11,30 @@ import (
 )
 
 type testDialer struct {
-	d func(network, address string) (net.Conn, error)
+	d func(ctx context.Context, network, address string) (net.Conn, error)
 }
 
-func (d testDialer) Dial(network, address string) (net.Conn, error) {
-	return d.d(network, address)
+func (d testDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return d.d(ctx, network, address)
 }
 
 func TestNoPanic(t *testing.T) {
 	d := &Dialer{}
-	d.Dial("tcp", "localhost")
+	d.DialContext(context.Background(), "tcp", "localhost")
 
 	d = &Dialer{}
-	d.Dial("tcp", "localhost:80")
+	d.DialContext(context.Background(), "tcp", "localhost:80")
 }
 
 func TestWrap(t *testing.T) {
 	used := false
-	dial := testDialer{d: func(string, string) (net.Conn, error) {
+	dial := testDialer{d: func(context.Context, string, string) (net.Conn, error) {
 		used = true
 		return nil, errors.New("")
 	}}
 
 	var d *Dialer = Wrap(dial)
-	d.Dial("tcp", "localhost:80")
+	d.DialContext(context.Background(), "tcp", "localhost:80")
 	assert.True(t, used)
 }
 
@@ -42,7 +43,7 @@ func TestReuseIP(t *testing.T) {
 
 	c := &net.TCPConn{}
 	d := &Dialer{
-		D: testDialer{d: func(network string, address string) (net.Conn, error) {
+		D: testDialer{d: func(ctx context.Context, network string, address string) (net.Conn, error) {
 			usedIPs = append(usedIPs, address)
 			return c, nil
 		}},
@@ -55,7 +56,7 @@ func TestReuseIP(t *testing.T) {
 
 	testCases := []string{"10.0.0.1:80", "10.0.0.1:80", "10.0.0.1:80"}
 	for i, v := range testCases {
-		conn, err := d.Dial("tcp", "github.com:80")
+		conn, err := d.DialContext(context.Background(), "tcp", "github.com:80")
 		assert.Nil(t, err)
 		assert.Equal(t, conn, c)
 		assert.Equal(t, usedIPs[i], v)
@@ -67,7 +68,7 @@ func TestIterateOverCachedIPs(t *testing.T) {
 
 	c := &net.TCPConn{}
 	d := &Dialer{
-		D: testDialer{d: func(network string, address string) (net.Conn, error) {
+		D: testDialer{d: func(ctx context.Context, network string, address string) (net.Conn, error) {
 			usedIPs = append(usedIPs, address)
 			return c, nil
 		}},
@@ -84,7 +85,7 @@ func TestIterateOverCachedIPs(t *testing.T) {
 	}
 
 	for i, v := range testCases {
-		conn, err := d.Dial("tcp", "github.com:80")
+		conn, err := d.DialContext(context.Background(), "tcp", "github.com:80")
 		assert.Nil(t, err)
 		assert.Equal(t, conn, c)
 		assert.Equal(t, usedIPs[i], v)
@@ -96,7 +97,7 @@ func TestRemoveBrokenIPFromCache(t *testing.T) {
 
 	e := errors.New("Invalid address")
 	d := &Dialer{
-		D: testDialer{d: func(network string, address string) (net.Conn, error) {
+		D: testDialer{d: func(ctx context.Context, network string, address string) (net.Conn, error) {
 			usedIPs = append(usedIPs, address)
 			return nil, e
 		}},
@@ -133,7 +134,7 @@ func TestRemoveBrokenIPFromCache(t *testing.T) {
 	}
 
 	for i := range testCases {
-		_, err := d.Dial("tcp", "github.com:80")
+		_, err := d.DialContext(context.Background(), "tcp", "github.com:80")
 		assert.Equal(t, err, e)
 		assert.Equal(t, testCases[i].used, usedIPs[i])
 		assert.Equal(t, d.addrs["github.com:80"], testCases[i].left)
@@ -147,7 +148,7 @@ func TestResolveHostWhenCacheIsEmpty(t *testing.T) {
 
 	e := errors.New("Invalid address")
 	d := &Dialer{
-		D: testDialer{d: func(network string, address string) (net.Conn, error) {
+		D: testDialer{d: func(ctx context.Context, network string, address string) (net.Conn, error) {
 			usedIPs = append(usedIPs, address)
 			return nil, e
 		}},
@@ -204,7 +205,7 @@ func TestResolveHostWhenCacheIsEmpty(t *testing.T) {
 	}
 
 	for i := range testCases {
-		_, err := d.Dial("tcp", "github.com:80")
+		_, err := d.DialContext(context.Background(), "tcp", "github.com:80")
 		assert.Equal(t, err, e)
 		assert.Equal(t, testCases[i].used, usedIPs[i])
 		assert.Equal(t, d.addrs["github.com:80"], testCases[i].left)
@@ -227,7 +228,7 @@ func TestResolveNewIPsWhenTTLExpired(t *testing.T) {
 		addrs: map[string][]string{
 			"github.com:80": []string{"10.0.0.1:80"},
 		},
-		D: testDialer{d: func(network string, address string) (net.Conn, error) {
+		D: testDialer{d: func(ctx context.Context, network string, address string) (net.Conn, error) {
 			usedIP = address
 			return nil, nil
 		}},
@@ -236,7 +237,7 @@ func TestResolveNewIPsWhenTTLExpired(t *testing.T) {
 		},
 	}
 
-	_, err := d.Dial("tcp", "github.com:80")
+	_, err := d.DialContext(context.Background(), "tcp", "github.com:80")
 	assert.Nil(t, err)
 	assert.Equal(t, usedIP, "[10.0.0.2]:80")
 	assert.Equal(t, d.addrs["github.com:80"], []string{"[10.0.0.2]:80"})

@@ -1,6 +1,7 @@
 package cdialer
 
 import (
+	"context"
 	"errors"
 	"net"
 	"strings"
@@ -12,7 +13,7 @@ import (
 var defaultTTL = 1 * time.Hour
 
 type dialer interface {
-	Dial(network, address string) (net.Conn, error)
+	DialContext(ctx context.Context, network, address string) (net.Conn, error)
 }
 
 type Dialer struct {
@@ -31,7 +32,7 @@ func Wrap(d dialer) *Dialer {
 	return &Dialer{D: d, TTL: defaultTTL}
 }
 
-func (d *Dialer) Dial(network, host string) (net.Conn, error) {
+func (d *Dialer) DialContext(ctx context.Context, network, host string) (net.Conn, error) {
 	addrs, err := d.getAddrs(host)
 	if err != nil {
 		return nil, err
@@ -44,7 +45,7 @@ func (d *Dialer) Dial(network, host string) (net.Conn, error) {
 	idx := atomic.AddInt64(&d.idx, 1)
 	addr := addrs[int(idx)%len(addrs)]
 
-	conn, err := d.D.Dial(network, addr)
+	conn, err := d.D.DialContext(ctx, network, addr)
 	if err != nil { // remove IP from the cache
 		d.mx.Lock()
 		var ok bool
